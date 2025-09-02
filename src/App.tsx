@@ -80,7 +80,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
+      <Router basename={process.env.NODE_ENV === 'production' ? '/megaphoneoz_supabase_backend' : ''}>
         <Routes>
           <Route 
             path="/login" 
