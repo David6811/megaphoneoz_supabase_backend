@@ -5,13 +5,21 @@
     <title>Megaphone OZ CMS</title>
     <script type="text/javascript">
         // Single Page Apps for GitHub Pages
-        // https://github.com/rafgraph/spa-github-pages
+        // Redirect to the main index.html with the path encoded in the hash
         var pathSegmentsToKeep = 1;
         var l = window.location;
+        var redirectPath = l.pathname.split('/').slice(pathSegmentsToKeep + 1).join('/');
+        
+        // If we're on the root path, redirect to the index
+        if (redirectPath === '' || redirectPath === '/') {
+            redirectPath = '/';
+        } else if (!redirectPath.startsWith('/')) {
+            redirectPath = '/' + redirectPath;
+        }
+        
         l.replace(
             l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-            l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-            l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+            '/megaphoneoz_supabase_backend/?/' + redirectPath +
             (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
             l.hash
         );
