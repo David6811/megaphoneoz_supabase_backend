@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { ThemeProvider, createTheme, CssBaseline, Box, CircularProgress } from '@mui/material'
-import { LoginPage } from './components/LoginPage'
-import { DashboardLayout } from './components/Layout/DashboardLayout'
-import { DashboardPage } from './pages/Dashboard/DashboardPage'
-import { PostsPage } from './pages/Dashboard/PostsPage'
+import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material'
+import '@fontsource/inter/300.css'
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/inter/800.css'
+import { theme } from './theme/theme'
+import { EnhancedLoginPage } from './components/EnhancedLoginPage'
+import { EnhancedDashboardLayout } from './components/Layout/EnhancedDashboardLayout'
+import { EnhancedDashboardPage } from './pages/Dashboard/EnhancedDashboardPage'
+import { EnhancedPostsPage } from './pages/Dashboard/EnhancedPostsPage'
 import { CommentsPage } from './pages/Dashboard/CommentsPage'
 import { supabase } from './config/supabase'
 import { User } from '@supabase/supabase-js'
-
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-    },
-  },
-})
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
@@ -86,16 +84,16 @@ function App() {
           <Route 
             path="/login" 
             element={
-              user ? <Navigate to="/dashboard" replace /> : <LoginPage />
+              user ? <Navigate to="/dashboard" replace /> : <EnhancedLoginPage />
             } 
           />
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <DashboardPage />
-                </DashboardLayout>
+                <EnhancedDashboardLayout>
+                  <EnhancedDashboardPage />
+                </EnhancedDashboardLayout>
               </ProtectedRoute>
             }
           />
@@ -103,9 +101,9 @@ function App() {
             path="/dashboard/posts"
             element={
               <ProtectedRoute>
-                <DashboardLayout>
-                  <PostsPage />
-                </DashboardLayout>
+                <EnhancedDashboardLayout>
+                  <EnhancedPostsPage />
+                </EnhancedDashboardLayout>
               </ProtectedRoute>
             }
           />
@@ -113,9 +111,9 @@ function App() {
             path="/dashboard/comments"
             element={
               <ProtectedRoute>
-                <DashboardLayout>
+                <EnhancedDashboardLayout>
                   <CommentsPage />
-                </DashboardLayout>
+                </EnhancedDashboardLayout>
               </ProtectedRoute>
             }
           />
@@ -123,9 +121,9 @@ function App() {
             path="/dashboard/settings"
             element={
               <ProtectedRoute>
-                <DashboardLayout>
+                <EnhancedDashboardLayout>
                   <div>Settings Page - Coming Soon</div>
-                </DashboardLayout>
+                </EnhancedDashboardLayout>
               </ProtectedRoute>
             }
           />
