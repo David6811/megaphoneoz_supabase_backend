@@ -1,6 +1,7 @@
 {
   "name": "megaphoneoz_supabase_backend",
   "version": "0.1.0",
+  "homepage": "https://david6811.github.io/megaphoneoz_supabase_backend",
   "private": true,
   "dependencies": {
     "@effect/platform": "^0.90.6",
