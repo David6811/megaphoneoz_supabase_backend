@@ -63,3 +63,22 @@ create table comments (
 
 create index comments_post_idx on comments(post_id);
 create index comments_status_idx on comments(status);
+
+
+
+
+
+-- 允许所有人查看
+CREATE POLICY "Public read access" 
+ON storage.objects 
+FOR SELECT 
+USING (bucket_id = 'post-images');
+
+-- 允许认证用户上传
+CREATE POLICY "Authenticated upload" 
+ON storage.objects 
+FOR INSERT 
+WITH CHECK (
+  auth.role() = 'authenticated' 
+  AND bucket_id = 'post-images'
+);
