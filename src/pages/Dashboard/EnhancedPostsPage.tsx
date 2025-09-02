@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Box,
@@ -51,6 +52,7 @@ interface FilterState {
 
 export const EnhancedPostsPage: React.FC = () => {
   const theme = useTheme()
+  const navigate = useNavigate()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -297,6 +299,7 @@ export const EnhancedPostsPage: React.FC = () => {
             variant="contained"
             size="large"
             startIcon={<AddIcon />}
+            onClick={() => navigate('/dashboard/posts/create')}
             sx={{
               background: theme.gradients.primary,
               px: 3,
@@ -307,7 +310,7 @@ export const EnhancedPostsPage: React.FC = () => {
               }
             }}
           >
-            New Post
+            New Article
           </Button>
         </Box>
       </motion.div>
@@ -446,6 +449,7 @@ export const EnhancedPostsPage: React.FC = () => {
       <Fab
         color="primary"
         aria-label="add"
+        onClick={() => navigate('/dashboard/posts/create')}
         sx={{
           position: 'fixed',
           bottom: 24,

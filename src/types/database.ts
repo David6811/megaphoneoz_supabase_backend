@@ -11,7 +11,7 @@ export interface Post {
   title: string
   content: string
   excerpt?: string
-  status: 'publish' | 'draft' | 'private'
+  status: 'publish' | 'draft' | 'private' | 'scheduled'
   post_type: 'post' | 'page'
   cover_image_url?: string
   category?: string

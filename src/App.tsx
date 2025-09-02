@@ -13,6 +13,7 @@ import { EnhancedDashboardLayout } from './components/Layout/EnhancedDashboardLa
 import { EnhancedDashboardPage } from './pages/Dashboard/EnhancedDashboardPage'
 import { EnhancedPostsPage } from './pages/Dashboard/EnhancedPostsPage'
 import { CommentsPage } from './pages/Dashboard/CommentsPage'
+import { CreateNewsArticle } from './pages/Posts/CreateNewsArticle'
 import { supabase } from './config/supabase'
 import { User } from '@supabase/supabase-js'
 
@@ -103,6 +104,16 @@ function App() {
               <ProtectedRoute>
                 <EnhancedDashboardLayout>
                   <EnhancedPostsPage />
+                </EnhancedDashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/posts/create"
+            element={
+              <ProtectedRoute>
+                <EnhancedDashboardLayout>
+                  <CreateNewsArticle />
                 </EnhancedDashboardLayout>
               </ProtectedRoute>
             }
