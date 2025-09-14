@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material'
 import { RichTextEditor } from '../../components/Editor/RichTextEditor'
 import { ImageUpload } from '../../components/Upload/ImageUpload'
+import { ArticlePreview } from '../../components/Preview/ArticlePreview'
 import { PostsService } from '../../services/postsService'
 import { StorageService, UploadResult } from '../../services/storageService'
 
@@ -227,8 +228,9 @@ export const CreateNewsArticle: React.FC = () => {
               startIcon={<PreviewIcon />}
               onClick={() => setPreviewMode(!previewMode)}
               size="small"
+              color={previewMode ? 'primary' : 'inherit'}
             >
-              Preview
+              {previewMode ? 'Edit' : 'Preview'}
             </Button>
             <Button
               variant="outlined"
@@ -267,73 +269,88 @@ export const CreateNewsArticle: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <Paper sx={{ p: 3, mb: 3 }}>
-              {/* Headline */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TitleIcon fontSize="small" />
-                  Article Headline
-                </Typography>
-                <TextField
-                  fullWidth
-                  placeholder="Enter compelling headline..."
-                  value={formData.headline}
-                  onChange={handleInputChange('headline')}
-                  variant="outlined"
-                  sx={{
-                    '& .MuiOutlinedInput-input': {
-                      fontSize: '1.5rem',
-                      fontWeight: 600,
-                      lineHeight: 1.3
-                    }
-                  }}
-                />
-              </Box>
+            {previewMode ? (
+              <ArticlePreview
+                headline={formData.headline}
+                subheadline={formData.subheadline}
+                byline={formData.byline}
+                category={formData.category}
+                tags={formData.tags}
+                content={formData.content}
+                excerpt={formData.excerpt}
+                coverImage={formData.coverImage}
+                featured={formData.featured}
+                breaking={formData.breaking}
+              />
+            ) : (
+              <Paper sx={{ p: 3, mb: 3 }}>
+                {/* Headline */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TitleIcon fontSize="small" />
+                    Article Headline
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="Enter compelling headline..."
+                    value={formData.headline}
+                    onChange={handleInputChange('headline')}
+                    variant="outlined"
+                    sx={{
+                      '& .MuiOutlinedInput-input': {
+                        fontSize: '1.5rem',
+                        fontWeight: 600,
+                        lineHeight: 1.3
+                      }
+                    }}
+                  />
+                </Box>
 
-              {/* Subheadline */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                  Subheadline (Optional)
-                </Typography>
-                <TextField
-                  fullWidth
-                  placeholder="Add a subheadline to provide more context..."
-                  value={formData.subheadline}
-                  onChange={handleInputChange('subheadline')}
-                  variant="outlined"
-                  multiline
-                  rows={2}
-                />
-              </Box>
+                {/* Subheadline */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" gutterBottom color="text.secondary">
+                    Subheadline (Optional)
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    placeholder="Add a subheadline to provide more context..."
+                    value={formData.subheadline}
+                    onChange={handleInputChange('subheadline')}
+                    variant="outlined"
+                    multiline
+                    rows={2}
+                  />
+                </Box>
 
-              {/* Cover Image */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Featured Image
-                </Typography>
-                <ImageUpload
-                  onUpload={handleCoverImageUpload}
-                  maxFiles={1}
-                  existingImages={formData.coverImage ? [{
-                    url: formData.coverImage,
-                    path: '',
-                    fileName: 'cover-image'
-                  }] : []}
-                />
-              </Box>
+                {/* Cover Image */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Featured Image
+                  </Typography>
+                  <ImageUpload
+                    onUpload={handleCoverImageUpload}
+                    maxFiles={1}
+                    existingImages={formData.coverImage ? [{
+                      url: formData.coverImage,
+                      path: '',
+                      fileName: 'cover-image'
+                    }] : []}
+                  />
+                </Box>
 
-              {/* Content Editor */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Article Content
-                </Typography>
-                <RichTextEditor
-                  content={formData.content}
-                  onChange={handleInputChange('content')}
-                  placeholder="Write your news article here. Use the toolbar to format text, add images, and structure your content..."
-                />
-              </Box>
-            </Paper>
+                {/* Content Editor */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Article Content
+                  </Typography>
+                  <RichTextEditor
+                    content={formData.content}
+                    onChange={handleInputChange('content')}
+                    placeholder="Write your news article here. Use the toolbar to format text, add images, and structure your content..."
+                  />
+                </Box>
+              </Paper>
+            )}
           </motion.div>
         </Grid>
 
