@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -8,9 +8,11 @@ import {
   Button,
   Chip,
   IconButton,
-  Menu,
   MenuItem,
+  Popover,
+  MenuList,
   Alert,
+  Snackbar,
   CircularProgress,
   TextField,
   InputAdornment,
@@ -18,15 +20,31 @@ import {
   CardContent,
   CardActions,
   Avatar,
-  Fab,
   Tooltip,
   Select,
   FormControl,
   InputLabel,
-  Grid,
   Pagination,
   useTheme,
-  alpha
+  alpha,
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -39,10 +57,18 @@ import {
   Article as ArticleIcon,
   Schedule as ScheduleIcon,
   Public as PublicIcon,
-  Create as DraftIcon
+  Create as DraftIcon,
+  Warning as WarningIcon,
+  Image as ImageIcon,
+  Description as ContentIcon,
+  Error as ErrorIcon,
+  Close as CloseIcon,
+  ViewModule as GridViewIcon,
+  ViewList as ListViewIcon
 } from '@mui/icons-material'
 import { PostsService } from '../../services/postsService'
 import type { Post } from '../../types/database'
+import { getCategoryDisplayName } from '../../constants/categories'
 
 interface FilterState {
   status: string
@@ -55,8 +81,9 @@ export const EnhancedPostsPage: React.FC = () => {
   const navigate = useNavigate()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
   const [selectedPost, setSelectedPost] = useState<Post | null>(null)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -66,11 +93,26 @@ export const EnhancedPostsPage: React.FC = () => {
     search: ''
   })
   const [categories, setCategories] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<'card' | 'table'>('card')
+  const [viewMode, setViewMode] = useState<'card' | 'table'>(() => {
+    // Load view mode from localStorage, default to 'card'
+    const savedViewMode = localStorage.getItem('posts-view-mode')
+    return (savedViewMode === 'card' || savedViewMode === 'table') ? savedViewMode : 'card'
+  })
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [searchInput, setSearchInput] = useState('')
 
-  const loadPosts = async () => {
+  const loadPosts = async (isSearch = false) => {
     try {
-      setLoading(true)
+      // Only show full loading on initial load, use searching state for searches
+      if (isSearch) {
+        setSearching(true)
+      } else if (loading) {
+        setLoading(true)
+      }
+      
       const { data, count } = await PostsService.getAllPosts(
         page - 1, 
         12, 
@@ -85,7 +127,11 @@ export const EnhancedPostsPage: React.FC = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load posts')
     } finally {
-      setLoading(false)
+      if (isSearch) {
+        setSearching(false)
+      } else {
+        setLoading(false)
+      }
     }
   }
 
@@ -98,8 +144,24 @@ export const EnhancedPostsPage: React.FC = () => {
     }
   }
 
+  // Handle search execution
+  const executeSearch = () => {
+    if (searchInput !== filters.search) {
+      setFilters(prev => ({ ...prev, search: searchInput }))
+      setPage(1)
+    }
+  }
+
+  // Handle Enter key press
+  const handleSearchKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      executeSearch()
+    }
+  }
+
   useEffect(() => {
-    loadPosts()
+    const isSearching = filters.search !== ''
+    loadPosts(isSearching)
   }, [page, filters])
 
   useEffect(() => {
@@ -107,30 +169,71 @@ export const EnhancedPostsPage: React.FC = () => {
   }, [])
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, post: Post) => {
-    setAnchorEl(event.currentTarget)
+    event.preventDefault()
+    event.stopPropagation()
+    
+    // Get position coordinates instead of using anchor element
+    const rect = event.currentTarget.getBoundingClientRect()
+    setMenuPosition({
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX
+    })
     setSelectedPost(post)
   }
 
   const handleMenuClose = () => {
-    setAnchorEl(null)
+    setMenuPosition(null)
     setSelectedPost(null)
   }
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
     if (!selectedPost) return
     
     try {
       await PostsService.deletePost(selectedPost.id)
       await loadPosts()
       handleMenuClose()
+      setDeleteDialogOpen(false)
+      
+      // Show success message
+      setError(null) // Clear any previous errors
+      setSuccessMessage(`Successfully deleted "${selectedPost.title}" and all associated images`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete post')
+      // Show error dialog instead of error banner
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete post and images')
+      setErrorDialogOpen(true)
+      setDeleteDialogOpen(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false)
+  }
+
+  const handleErrorDialogClose = () => {
+    setErrorDialogOpen(false)
+    setDeleteError(null)
+  }
+
+  const handleViewModeChange = (newMode: 'card' | 'table') => {
+    if (newMode) {
+      setViewMode(newMode)
+      localStorage.setItem('posts-view-mode', newMode)
     }
   }
 
   const handleFilterChange = (key: keyof FilterState, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }))
-    setPage(1) // Reset to first page when filtering
+    if (key === 'search') {
+      // Only update local search input, don't trigger search
+      setSearchInput(value)
+    } else {
+      setFilters(prev => ({ ...prev, [key]: value }))
+      setPage(1) // Reset to first page when filtering
+    }
   }
 
   const getStatusColor = (status: Post['status']) => {
@@ -161,10 +264,10 @@ export const EnhancedPostsPage: React.FC = () => {
 
   const PostCard = ({ post, index }: { post: Post; index: number }) => (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-      whileHover={{ y: -4 }}
+      transition={{ duration: 0.2, delay: index * 0.05 }}
+      whileHover={{ y: -2 }}
     >
       <Card
         sx={{
@@ -200,11 +303,17 @@ export const EnhancedPostsPage: React.FC = () => {
               sx={{ fontWeight: 600 }}
             />
             <IconButton
+              id="post-action-button"
               size="small"
+              aria-label="Post actions"
+              aria-controls={Boolean(menuPosition) ? 'post-action-menu' : undefined}
+              aria-haspopup="true"
               onClick={(e) => handleMenuClick(e, post)}
               sx={{ 
                 bgcolor: alpha(theme.palette.background.paper, 0.8),
-                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) }
+                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
+                position: 'relative',
+                zIndex: 1
               }}
             >
               <MoreVertIcon />
@@ -241,7 +350,7 @@ export const EnhancedPostsPage: React.FC = () => {
 
           {post.category && (
             <Chip 
-              label={post.category} 
+              label={getCategoryDisplayName(post.category)} 
               size="small" 
               variant="outlined"
               sx={{ mb: 2 }}
@@ -252,11 +361,11 @@ export const EnhancedPostsPage: React.FC = () => {
         <CardActions sx={{ p: 3, pt: 0, mt: 'auto' }}>
           <Box display="flex" alignItems="center" width="100%">
             <Avatar sx={{ width: 32, height: 32, mr: 1, bgcolor: theme.palette.primary.main }}>
-              {post.author?.email?.[0]?.toUpperCase() || 'A'}
+              {(post.author_email || post.author_name)?.[0]?.toUpperCase() || 'A'}
             </Avatar>
             <Box flexGrow={1}>
               <Typography variant="body2" fontWeight="medium">
-                {post.author?.email || 'Anonymous'}
+                {post.author_name || post.author_email || 'Anonymous'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {new Date(post.created_at).toLocaleDateString('en-US', {
@@ -266,7 +375,11 @@ export const EnhancedPostsPage: React.FC = () => {
                 })}
               </Typography>
             </Box>
-            <Button size="small" startIcon={<ViewIcon />}>
+            <Button 
+              size="small" 
+              startIcon={<ViewIcon />}
+              onClick={() => navigate(`/dashboard/posts/view/${post.id}`)}
+            >
               View
             </Button>
           </Box>
@@ -274,6 +387,161 @@ export const EnhancedPostsPage: React.FC = () => {
       </Card>
     </motion.div>
   )
+
+  // List view component
+  const PostListItem = ({ post, index }: { post: Post; index: number }) => (
+    <TableRow
+      hover
+      sx={{
+        '&:hover': {
+          bgcolor: alpha(theme.palette.primary.main, 0.04)
+        }
+      }}
+    >
+        <TableCell sx={{ width: 100, padding: 1 }}>
+          {post.cover_image_url && (
+            <Box
+              component="img"
+              src={post.cover_image_url}
+              alt={post.title}
+              sx={{
+                width: 60,
+                height: 40,
+                objectFit: 'cover',
+                borderRadius: 1
+              }}
+            />
+          )}
+        </TableCell>
+        <TableCell sx={{ width: 400 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5, fontSize: '0.95rem' }}>
+            {post.title}
+          </Typography>
+          {post.excerpt && (
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                fontSize: '0.85rem',
+                lineHeight: 1.4
+              }}
+            >
+              {post.excerpt}
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell sx={{ width: 140 }}>
+          {post.category ? (
+            <Chip 
+              label={getCategoryDisplayName(post.category)} 
+              size="small" 
+              variant="outlined"
+              sx={{ fontSize: '0.75rem' }}
+            />
+          ) : (
+            <Typography variant="body2" color="text.disabled" sx={{ fontSize: '0.8rem', fontStyle: 'italic' }}>
+              No category
+            </Typography>
+          )}
+        </TableCell>
+        <TableCell sx={{ width: 120 }}>
+          <Chip
+            icon={getStatusIcon(post.status)}
+            label={post.status}
+            color={getStatusColor(post.status)}
+            size="small"
+            sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+          />
+        </TableCell>
+        <TableCell sx={{ width: 120 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+            {new Date(post.created_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            })}
+          </Typography>
+        </TableCell>
+        <TableCell sx={{ width: 140 }}>
+          <Box display="flex" gap={1}>
+            <Tooltip title="View">
+              <IconButton 
+                size="small"
+                onClick={() => navigate(`/dashboard/posts/view/${post.id}`)}
+              >
+                <ViewIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit">
+              <IconButton 
+                size="small"
+                onClick={() => navigate(`/dashboard/posts/edit/${post.id}`)}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="More actions">
+              <IconButton
+                size="small"
+                onClick={(e) => handleMenuClick(e, post)}
+              >
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </TableCell>
+      </TableRow>
+  )
+
+  // Remove duplicate posts based on ID
+  const uniquePosts = useMemo(() => {
+    const seen = new Set()
+    return posts.filter(post => {
+      if (seen.has(post.id)) {
+        return false
+      }
+      seen.add(post.id)
+      return true
+    })
+  }, [posts])
+
+  // Memoize the posts grid to prevent re-rendering when searchInput changes
+  const postsGrid = useMemo(() => (
+    <Grid container spacing={3}>
+      {uniquePosts.map((post, index) => (
+        <Grid key={post.id} size={{ xs: 12, md: 6, lg: 4 }}>
+          <PostCard post={post} index={index} />
+        </Grid>
+      ))}
+    </Grid>
+  ), [uniquePosts])
+
+  // Memoize the posts list to prevent re-rendering when searchInput changes
+  const postsList = useMemo(() => (
+    <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+      <Table sx={{ tableLayout: 'fixed', minWidth: 1020 }}>
+        <TableHead>
+          <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+            <TableCell sx={{ fontWeight: 600, width: 100, padding: 1 }}>Image</TableCell>
+            <TableCell sx={{ fontWeight: 600, width: 400 }}>Title & Content</TableCell>
+            <TableCell sx={{ fontWeight: 600, width: 140 }}>Category</TableCell>
+            <TableCell sx={{ fontWeight: 600, width: 120 }}>Status</TableCell>
+            <TableCell sx={{ fontWeight: 600, width: 120 }}>Date</TableCell>
+            <TableCell sx={{ fontWeight: 600, width: 140 }}>Actions</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {uniquePosts.map((post, index) => (
+            <PostListItem key={`post-${post.id}`} post={post} index={index} />
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  ), [uniquePosts])
 
   if (loading) {
     return (
@@ -332,13 +600,35 @@ export const EnhancedPostsPage: React.FC = () => {
             <Grid size={{ xs: 12, md: 4 }}>
               <TextField
                 fullWidth
-                placeholder="Search posts..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
+                placeholder="Search posts... (Press Enter to search)"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon color="action" />
+                      {searching ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        <SearchIcon color="action" />
+                      )}
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={executeSearch}
+                        disabled={searching || searchInput === filters.search}
+                        sx={{ 
+                          minWidth: 'auto',
+                          px: 2,
+                          borderRadius: 1.5
+                        }}
+                      >
+                        Search
+                      </Button>
                     </InputAdornment>
                   ),
                 }}
@@ -382,11 +672,35 @@ export const EnhancedPostsPage: React.FC = () => {
               </FormControl>
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Box display="flex" justifyContent="flex-end" gap={1}>
+              <Box display="flex" justifyContent="flex-end" gap={2} alignItems="center">
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={(_, newMode) => handleViewModeChange(newMode)}
+                  size="small"
+                  sx={{ 
+                    '& .MuiToggleButton-root': {
+                      borderRadius: 1.5,
+                      px: 2
+                    }
+                  }}
+                >
+                  <ToggleButton value="card">
+                    <GridViewIcon fontSize="small" sx={{ mr: 1 }} />
+                    Grid
+                  </ToggleButton>
+                  <ToggleButton value="table">
+                    <ListViewIcon fontSize="small" sx={{ mr: 1 }} />
+                    List
+                  </ToggleButton>
+                </ToggleButtonGroup>
                 <Tooltip title="Reset Filters">
                   <Button 
                     variant="outlined" 
-                    onClick={() => setFilters({ status: '', category: '', search: '' })}
+                    onClick={() => {
+                      setFilters({ status: '', category: '', search: '' })
+                      setSearchInput('')
+                    }}
                     disabled={!filters.status && !filters.category && !filters.search}
                   >
                     Clear
@@ -399,12 +713,13 @@ export const EnhancedPostsPage: React.FC = () => {
       </motion.div>
 
       {/* Posts Grid */}
-      <AnimatePresence mode="wait">
-        {posts.length === 0 ? (
+      <AnimatePresence>
+        {uniquePosts.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
           >
             <Paper sx={{ p: 6, textAlign: 'center' }}>
               <ArticleIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
@@ -422,13 +737,7 @@ export const EnhancedPostsPage: React.FC = () => {
             </Paper>
           </motion.div>
         ) : (
-          <Grid container spacing={3}>
-            {posts.map((post, index) => (
-              <Grid key={post.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                <PostCard post={post} index={index} />
-              </Grid>
-            ))}
-          </Grid>
+          viewMode === 'card' ? postsGrid : postsList
         )}
       </AnimatePresence>
 
@@ -445,46 +754,320 @@ export const EnhancedPostsPage: React.FC = () => {
         </Box>
       )}
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        onClick={() => navigate('/dashboard/posts/create')}
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          background: theme.gradients.primary,
-          '&:hover': {
-            transform: 'scale(1.1)',
-            boxShadow: '0 8px 25px rgba(102, 126, 234, 0.25)'
+      {/* Action Menu */}
+      <Popover
+        id="post-action-menu"
+        open={Boolean(menuPosition)}
+        anchorReference="anchorPosition"
+        anchorPosition={menuPosition ? { top: menuPosition.top, left: menuPosition.left } : undefined}
+        onClose={handleMenuClose}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            minWidth: '140px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+            border: '1px solid rgba(0,0,0,0.08)',
+            mt: 1
           }
         }}
       >
-        <AddIcon />
-      </Fab>
-
-      {/* Action Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-      >
-        <MenuItem onClick={handleMenuClose}>
-          <ViewIcon sx={{ mr: 1 }} />
+        <MenuList 
+          dense
+          sx={{
+            py: 1,
+            '& .MuiMenuItem-root': {
+              fontSize: '0.875rem',
+              py: 0.75,
+              px: 2,
+              borderRadius: 1,
+              mx: 1,
+              my: 0.5
+            }
+          }}
+        >
+        <MenuItem 
+          onClick={() => {
+            if (selectedPost) {
+              window.open(`/dashboard/posts/view/${selectedPost.id}`, '_blank')
+            }
+            handleMenuClose()
+          }}
+          sx={{ 
+            py: 1, 
+            px: 2,
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+        >
+          <ViewIcon sx={{ mr: 1, fontSize: 18, color: 'text.secondary' }} />
           View
         </MenuItem>
-        <MenuItem onClick={handleMenuClose}>
-          <EditIcon sx={{ mr: 1 }} />
+        <MenuItem 
+          onClick={() => {
+            if (selectedPost) {
+              navigate(`/dashboard/posts/edit/${selectedPost.id}`)
+            }
+            handleMenuClose()
+          }}
+          sx={{ 
+            py: 1, 
+            px: 2,
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+        >
+          <EditIcon sx={{ mr: 1, fontSize: 18, color: 'text.secondary' }} />
           Edit
         </MenuItem>
-        <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
-          <DeleteIcon sx={{ mr: 1 }} />
+        <MenuItem 
+          onClick={handleDeleteClick} 
+          sx={{ 
+            py: 1, 
+            px: 2,
+            color: 'error.main',
+            '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' }
+          }}
+        >
+          <DeleteIcon sx={{ mr: 1, fontSize: 18 }} />
           Delete
         </MenuItem>
-      </Menu>
+        </MenuList>
+      </Popover>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 24px 48px rgba(0,0,0,0.15)'
+          }
+        }}
+      >
+        <DialogTitle 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2, 
+            pb: 2,
+            color: 'error.main'
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              bgcolor: alpha(theme.palette.error.main, 0.1)
+            }}
+          >
+            <WarningIcon sx={{ color: 'error.main', fontSize: 24 }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" fontWeight="bold">
+              Delete Post
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              This action cannot be undone
+            </Typography>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent sx={{ py: 0 }}>
+          <Typography variant="body1" gutterBottom>
+            Are you sure you want to permanently delete <strong>"{selectedPost?.title}"</strong>?
+          </Typography>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            The following will be permanently removed:
+          </Typography>
+          
+          <List dense sx={{ bgcolor: alpha(theme.palette.error.main, 0.05), borderRadius: 2, p: 1 }}>
+            <ListItem>
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <ContentIcon sx={{ color: 'error.main', fontSize: 20 }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Post content and metadata"
+                secondary="Title, content, excerpt, category, and tags"
+                primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                secondaryTypographyProps={{ variant: 'caption' }}
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon sx={{ minWidth: 36 }}>
+                <ImageIcon sx={{ color: 'error.main', fontSize: 20 }} />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Associated images"
+                secondary="Cover image and any embedded content images"
+                primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
+                secondaryTypographyProps={{ variant: 'caption' }}
+              />
+            </ListItem>
+          </List>
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button 
+            onClick={handleDeleteCancel}
+            variant="outlined"
+            sx={{ 
+              minWidth: 100,
+              borderRadius: 2
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            sx={{ 
+              minWidth: 100,
+              borderRadius: 2,
+              fontWeight: 600
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Error Dialog */}
+      <Dialog
+        open={errorDialogOpen}
+        onClose={handleErrorDialogClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 24px 48px rgba(0,0,0,0.15)'
+          }
+        }}
+      >
+        <DialogTitle 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2, 
+            pb: 2,
+            color: 'error.main'
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              bgcolor: alpha(theme.palette.error.main, 0.1)
+            }}
+          >
+            <ErrorIcon sx={{ color: 'error.main', fontSize: 24 }} />
+          </Box>
+          <Box flexGrow={1}>
+            <Typography variant="h6" fontWeight="bold">
+              Delete Failed
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Unable to delete the post
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={handleErrorDialogClose}
+            size="small"
+            sx={{ 
+              color: 'text.secondary',
+              '&:hover': { bgcolor: alpha(theme.palette.text.secondary, 0.1) }
+            }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ py: 0 }}>
+          <Typography variant="body1" gutterBottom>
+            We encountered an error while trying to delete <strong>"{selectedPost?.title}"</strong>.
+          </Typography>
+          
+          <Divider sx={{ my: 2 }} />
+          
+          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontWeight: 500 }}>
+            Error Details:
+          </Typography>
+          
+          <Box 
+            sx={{ 
+              bgcolor: alpha(theme.palette.error.main, 0.05), 
+              borderRadius: 2, 
+              p: 2,
+              border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`
+            }}
+          >
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontFamily: 'monospace',
+                color: 'error.dark',
+                wordBreak: 'break-word'
+              }}
+            >
+              {deleteError}
+            </Typography>
+          </Box>
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Please try again in a few moments. If the problem persists, contact support.
+          </Typography>
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button 
+            onClick={handleErrorDialogClose}
+            variant="contained"
+            sx={{ 
+              minWidth: 100,
+              borderRadius: 2
+            }}
+          >
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={Boolean(successMessage)}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMessage(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          severity="success" 
+          onClose={() => setSuccessMessage(null)}
+          sx={{ width: '100%' }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

@@ -6,12 +6,14 @@ import {
   Paper,
   Avatar,
   Divider,
+  IconButton,
   useTheme
 } from '@mui/material'
 import {
   AccessTime as TimeIcon,
   Person as PersonIcon,
-  Category as CategoryIcon
+  Category as CategoryIcon,
+  Close as CloseIcon
 } from '@mui/icons-material'
 
 interface ArticlePreviewProps {
@@ -25,6 +27,7 @@ interface ArticlePreviewProps {
   coverImage: string
   featured: boolean
   breaking: boolean
+  onClose?: () => void
 }
 
 export const ArticlePreview: React.FC<ArticlePreviewProps> = ({
@@ -36,7 +39,8 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({
   content,
   coverImage,
   featured,
-  breaking
+  breaking,
+  onClose
 }) => {
   const theme = useTheme()
   
@@ -59,9 +63,27 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({
         background: theme.palette.background.paper,
         borderRadius: 3,
         overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+        boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+        position: 'relative'
       }}
     >
+      {/* Close Button */}
+      {onClose && (
+        <IconButton
+          onClick={onClose}
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 10,
+            bgcolor: 'rgba(255,255,255,0.9)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,1)' }
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      )}
+      
       {/* Header with breaking/featured indicators */}
       {(breaking || featured) && (
         <Box sx={{ p: 2, pb: 0 }}>
