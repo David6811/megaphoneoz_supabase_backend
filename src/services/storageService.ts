@@ -82,13 +82,58 @@ export class StorageService {
   // Delete image
   static async deleteImage(filePath: string): Promise<void> {
     try {
-      const { error } = await supabase.storage
+      console.log(`Attempting to delete: ${filePath} from bucket: ${this.BUCKET_NAME}`)
+      
+      // First, check if file exists
+      const { data: files, error: listError } = await supabase.storage
+        .from(this.BUCKET_NAME)
+        .list(filePath.includes('/') ? filePath.substring(0, filePath.lastIndexOf('/')) : '', {
+          limit: 1000
+        })
+      
+      if (listError) {
+        console.warn(`Could not list files to verify existence: ${listError.message}`)
+      } else if (files) {
+        const fileName = filePath.includes('/') ? filePath.split('/').pop() : filePath
+        const fileExists = files.some(file => file.name === fileName)
+        console.log(`File ${fileName} exists in storage: ${fileExists}`)
+        
+        if (!fileExists) {
+          throw new Error(`File ${filePath} does not exist in storage`)
+        }
+      }
+      
+      // Proceed with deletion
+      const { data, error } = await supabase.storage
         .from(this.BUCKET_NAME)
         .remove([filePath])
 
+      console.log('Delete operation result:', { data, error })
+      
       if (error) {
         throw new Error(`Delete failed: ${error.message}`)
       }
+      
+      // Verify deletion by trying to list the file again
+      if (files) {
+        const { data: verifyFiles } = await supabase.storage
+          .from(this.BUCKET_NAME)
+          .list(filePath.includes('/') ? filePath.substring(0, filePath.lastIndexOf('/')) : '', {
+            limit: 1000
+          })
+        
+        if (verifyFiles) {
+          const fileName = filePath.includes('/') ? filePath.split('/').pop() : filePath
+          const stillExists = verifyFiles.some(file => file.name === fileName)
+          
+          if (stillExists) {
+            throw new Error(`File ${filePath} was not actually deleted - still exists in storage`)
+          } else {
+            console.log(`Verified: File ${filePath} has been successfully deleted`)
+          }
+        }
+      }
+      
     } catch (error) {
       console.error('Error deleting image:', error)
       throw error

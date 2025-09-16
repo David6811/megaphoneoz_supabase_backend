@@ -8,15 +8,18 @@ import {
   Typography,
   Alert,
   CircularProgress,
-  Container
+  Container,
+  Link,
+  Divider
 } from '@mui/material'
 import { login, LoginCredentials, AuthError } from '../services/authService'
 
 interface LoginPageProps {
   onLoginSuccess?: () => void
+  onSwitchToSignup?: () => void
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, onSwitchToSignup }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -109,6 +112,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   'Sign In'
                 )}
               </Button>
+
+              <Divider sx={{ my: 3 }} />
+              
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  Don't have an account?{' '}
+                  <Link
+                    component="button"
+                    type="button"
+                    onClick={onSwitchToSignup}
+                    variant="body2"
+                    sx={{ textDecoration: 'none' }}
+                  >
+                    Create Account
+                  </Link>
+                </Typography>
+              </Box>
             </Box>
           </CardContent>
         </Card>

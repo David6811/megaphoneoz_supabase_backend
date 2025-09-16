@@ -162,7 +162,7 @@ export const PostsPage: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell>{post.category || '-'}</TableCell>
-                  <TableCell>{post.author?.email || '-'}</TableCell>
+                  <TableCell>{post.author_name || post.author_email || '-'}</TableCell>
                   <TableCell>
                     {new Date(post.created_at).toLocaleDateString()}
                   </TableCell>

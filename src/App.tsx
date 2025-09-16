@@ -8,12 +8,14 @@ import '@fontsource/inter/600.css'
 import '@fontsource/inter/700.css'
 import '@fontsource/inter/800.css'
 import { theme } from './theme/theme'
-import { EnhancedLoginPage } from './components/EnhancedLoginPage'
+import { EnhancedAuthPage } from './components/EnhancedAuthPage'
 import { EnhancedDashboardLayout } from './components/Layout/EnhancedDashboardLayout'
 import { EnhancedDashboardPage } from './pages/Dashboard/EnhancedDashboardPage'
 import { EnhancedPostsPage } from './pages/Dashboard/EnhancedPostsPage'
 import { CommentsPage } from './pages/Dashboard/CommentsPage'
 import { CreateNewsArticle } from './pages/Posts/CreateNewsArticle'
+import { EditNewsArticle } from './pages/Posts/EditNewsArticle'
+import { ViewNewsArticle } from './pages/Posts/ViewNewsArticle'
 import { supabase } from './config/supabase'
 import { User } from '@supabase/supabase-js'
 
@@ -85,7 +87,13 @@ function App() {
           <Route 
             path="/login" 
             element={
-              user ? <Navigate to="/dashboard" replace /> : <EnhancedLoginPage />
+              user ? <Navigate to="/dashboard" replace /> : <EnhancedAuthPage initialMode="login" />
+            } 
+          />
+          <Route 
+            path="/signup" 
+            element={
+              user ? <Navigate to="/dashboard" replace /> : <EnhancedAuthPage initialMode="signup" />
             } 
           />
           <Route
@@ -114,6 +122,26 @@ function App() {
               <ProtectedRoute>
                 <EnhancedDashboardLayout>
                   <CreateNewsArticle />
+                </EnhancedDashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/posts/edit/:id"
+            element={
+              <ProtectedRoute>
+                <EnhancedDashboardLayout>
+                  <EditNewsArticle />
+                </EnhancedDashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/posts/view/:id"
+            element={
+              <ProtectedRoute>
+                <EnhancedDashboardLayout>
+                  <ViewNewsArticle />
                 </EnhancedDashboardLayout>
               </ProtectedRoute>
             }

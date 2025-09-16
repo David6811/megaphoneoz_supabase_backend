@@ -23,7 +23,8 @@ import {
   IconButton,
   Tooltip,
   useTheme,
-  alpha
+  alpha,
+  ListSubheader
 } from '@mui/material'
 import {
   Save as SaveIcon,
@@ -38,8 +39,10 @@ import {
 import { RichTextEditor } from '../../components/Editor/RichTextEditor'
 import { ImageUpload } from '../../components/Upload/ImageUpload'
 import { ArticlePreview } from '../../components/Preview/ArticlePreview'
+import { AuthorInfo } from '../../components/User/AuthorInfo'
 import { PostsService } from '../../services/postsService'
 import { StorageService, UploadResult } from '../../services/storageService'
+import { CATEGORY_MAP, CategoryInfo, debugCategoryMapping, getAllCategoryMappings } from '../../constants/categoryMapping'
 
 interface NewsFormData {
   headline: string
@@ -50,31 +53,32 @@ interface NewsFormData {
   content: string
   excerpt: string
   coverImage: string
-  status: 'draft' | 'publish' | 'scheduled'
+  status: 'draft' | 'publish' | 'private' | 'scheduled'
   publishDate: string
   featured: boolean
   breaking: boolean
 }
 
-const NEWS_CATEGORIES = [
-  'Breaking News',
-  'Politics',
-  'Business',
-  'Technology',
-  'Health',
-  'Science',
-  'Sports',
-  'Entertainment',
-  'World News',
-  'Local News',
-  'Opinion',
-  'Lifestyle'
-]
 
 const NEWS_TAGS = [
   'urgent', 'exclusive', 'investigation', 'interview', 'analysis', 'breaking',
   'update', 'developing', 'trending', 'viral', 'controversy', 'scandal'
 ]
+
+// Helper function to organize categories by hierarchy
+const organizeCategoriesByHierarchy = () => {
+  const level1Categories = Object.values(CATEGORY_MAP).filter(cat => cat.level === 1)
+  const level2Categories = Object.values(CATEGORY_MAP).filter(cat => cat.level === 2)
+  const level3Categories = Object.values(CATEGORY_MAP).filter(cat => cat.level === 3)
+  
+  return level1Categories.map(level1 => ({
+    ...level1,
+    children: level2Categories.filter(level2 => level2.parentId === level1.id).map(level2 => ({
+      ...level2,
+      children: level3Categories.filter(level3 => level3.parentId === level2.id)
+    }))
+  }))
+}
 
 export const CreateNewsArticle: React.FC = () => {
   const navigate = useNavigate()
@@ -110,6 +114,21 @@ export const CreateNewsArticle: React.FC = () => {
   // Initialize Storage on component mount
   useEffect(() => {
     StorageService.initializeBucket()
+    
+    // 调试：显示分类映射信息
+    console.log('🔧 分类映射调试工具已加载')
+    debugCategoryMapping()
+    
+    // 将调试函数添加到全局，供前端团队使用
+    ;(window as any).megaphoneCategoryDebug = {
+      debugMapping: debugCategoryMapping,
+      getAllMappings: getAllCategoryMappings,
+      testPath: (path: string) => {
+        const mappings = getAllCategoryMappings()
+        console.log(`测试路径 "${path}":`, mappings[path] || '未找到映射')
+        return mappings[path]
+      }
+    }
   }, [])
 
   // Auto-generate excerpt from content
@@ -164,6 +183,10 @@ export const CreateNewsArticle: React.FC = () => {
         category: formData.category,
         // Additional metadata can be stored in a JSON field if available
       }
+
+      // 调试：显示即将保存的分类
+      console.log('🔍 即将保存的分类:', formData.category)
+      console.log('📝 完整文章数据:', postData)
 
       await PostsService.createPost(postData)
 
@@ -361,6 +384,9 @@ export const CreateNewsArticle: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
+            {/* Author Information */}
+            <AuthorInfo />
+
             {/* Publication Settings */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
@@ -445,11 +471,33 @@ export const CreateNewsArticle: React.FC = () => {
                     onChange={handleInputChange('category')}
                     label="Category"
                   >
-                    {NEWS_CATEGORIES.map(category => (
-                      <MenuItem key={category} value={category}>
-                        {category}
-                      </MenuItem>
-                    ))}
+                    {organizeCategoriesByHierarchy().map(level1 => [
+                      <ListSubheader key={level1.id} sx={{ fontWeight: 600, color: 'primary.main', fontSize: '1rem' }}>
+                        {level1.displayName}
+                      </ListSubheader>,
+                      ...level1.children.map(level2 => {
+                        if (level2.children.length === 0) {
+                          // Level 2 only - can be selected directly
+                          return (
+                            <MenuItem key={level2.id} value={level2.displayName} sx={{ pl: 3, fontWeight: 500 }}>
+                              {level2.displayName}
+                            </MenuItem>
+                          )
+                        } else {
+                          // Level 2 has Level 3 children
+                          return [
+                            <ListSubheader key={`${level2.id}-header`} sx={{ fontWeight: 500, color: 'text.secondary', pl: 2, fontSize: '0.9rem' }}>
+                              {level2.displayName}
+                            </ListSubheader>,
+                            ...level2.children.map(level3 => (
+                              <MenuItem key={level3.id} value={level3.displayName} sx={{ pl: 6 }}>
+                                {level3.displayName}
+                              </MenuItem>
+                            ))
+                          ]
+                        }
+                      })
+                    ])}
                   </Select>
                 </FormControl>
 
