@@ -46,7 +46,6 @@ import type { Post } from '../../types/database'
 interface NewsFormData {
   headline: string
   subheadline: string
-  byline: string
   category: string
   tags: string[]
   content: string
@@ -73,7 +72,6 @@ export const EditNewsArticle: React.FC = () => {
   const [formData, setFormData] = useState<NewsFormData>({
     headline: '',
     subheadline: '',
-    byline: '',
     category: '',
     tags: [],
     content: '',
@@ -105,7 +103,6 @@ export const EditNewsArticle: React.FC = () => {
           const formData = {
             headline: post.title || '',
             subheadline: (post as any).subtitle || '', // May not exist yet
-            byline: post.author_name || post.author_email || '',
             category: post.category || '',
             tags: Array.isArray((post as any).tags) ? (post as any).tags : [], // May not exist yet
             content: post.content || '',
@@ -234,7 +231,6 @@ export const EditNewsArticle: React.FC = () => {
       <ArticlePreview
         headline={formData.headline}
         subheadline={formData.subheadline}
-        byline={formData.byline}
         category={formData.category}
         tags={formData.tags}
         content={formData.content}
@@ -337,17 +333,6 @@ export const EditNewsArticle: React.FC = () => {
                     value={formData.subheadline}
                     onChange={(e) => handleInputChange('subheadline', e.target.value)}
                     placeholder="Optional subheadline for more context..."
-                    sx={{ mb: 2 }}
-                  />
-                </Grid>
-                
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="Byline"
-                    value={formData.byline}
-                    onChange={(e) => handleInputChange('byline', e.target.value)}
-                    placeholder="Author name"
                     sx={{ mb: 2 }}
                   />
                 </Grid>

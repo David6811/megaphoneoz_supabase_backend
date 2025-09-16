@@ -47,7 +47,6 @@ import { CATEGORY_MAP, CategoryInfo, debugCategoryMapping, getAllCategoryMapping
 interface NewsFormData {
   headline: string
   subheadline: string
-  byline: string
   category: string
   tags: string[]
   content: string
@@ -87,7 +86,6 @@ export const CreateNewsArticle: React.FC = () => {
   const [formData, setFormData] = useState<NewsFormData>({
     headline: '',
     subheadline: '',
-    byline: '',
     category: '',
     tags: [],
     content: '',
@@ -296,7 +294,6 @@ export const CreateNewsArticle: React.FC = () => {
               <ArticlePreview
                 headline={formData.headline}
                 subheadline={formData.subheadline}
-                byline={formData.byline}
                 category={formData.category}
                 tags={formData.tags}
                 content={formData.content}
@@ -452,17 +449,6 @@ export const CreateNewsArticle: React.FC = () => {
                   News Details
                 </Typography>
 
-                <TextField
-                  fullWidth
-                  label="Byline"
-                  placeholder="By [Author Name]"
-                  value={formData.byline}
-                  onChange={handleInputChange('byline')}
-                  sx={{ mb: 2 }}
-                  InputProps={{
-                    startAdornment: <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                  }}
-                />
 
                 <FormControl fullWidth sx={{ mb: 2 }}>
                   <InputLabel>Category</InputLabel>

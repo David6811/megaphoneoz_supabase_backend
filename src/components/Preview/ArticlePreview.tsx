@@ -19,7 +19,6 @@ import {
 interface ArticlePreviewProps {
   headline: string
   subheadline: string
-  byline: string
   category: string
   tags: string[]
   content: string
@@ -33,7 +32,6 @@ interface ArticlePreviewProps {
 export const ArticlePreview: React.FC<ArticlePreviewProps> = ({
   headline,
   subheadline,
-  byline,
   category,
   tags,
   content,
@@ -193,7 +191,7 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({
             </Avatar>
             <Box>
               <Typography variant="body2" fontWeight={600}>
-                {byline || 'Author Name'}
+                Author Name
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {publishDate}
