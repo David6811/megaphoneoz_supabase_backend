@@ -614,23 +614,6 @@ export const EnhancedPostsPage: React.FC = () => {
                       )}
                     </InputAdornment>
                   ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={executeSearch}
-                        disabled={searching || searchInput === filters.search}
-                        sx={{ 
-                          minWidth: 'auto',
-                          px: 2,
-                          borderRadius: 1.5
-                        }}
-                      >
-                        Search
-                      </Button>
-                    </InputAdornment>
-                  ),
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
