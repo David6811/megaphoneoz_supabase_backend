@@ -46,8 +46,6 @@ import { CATEGORY_MAP, CategoryInfo, debugCategoryMapping, getAllCategoryMapping
 
 interface NewsFormData {
   headline: string
-  subheadline: string
-  byline: string
   category: string
   tags: string[]
   content: string
@@ -86,8 +84,6 @@ export const CreateNewsArticle: React.FC = () => {
   
   const [formData, setFormData] = useState<NewsFormData>({
     headline: '',
-    subheadline: '',
-    byline: '',
     category: '',
     tags: [],
     content: '',
@@ -175,9 +171,10 @@ export const CreateNewsArticle: React.FC = () => {
 
       const postData = {
         title: formData.headline,
+        // Note: subtitle field not supported in current database schema
         content: formData.content,
         excerpt: formData.excerpt,
-        status: publishNow ? 'publish' as const : formData.status,
+        status: publishNow ? 'publish' as const : 'draft' as const,
         post_type: 'post' as const,
         cover_image_url: formData.coverImage,
         category: formData.category,
@@ -295,8 +292,7 @@ export const CreateNewsArticle: React.FC = () => {
             {previewMode ? (
               <ArticlePreview
                 headline={formData.headline}
-                subheadline={formData.subheadline}
-                byline={formData.byline}
+                subheadline=""
                 category={formData.category}
                 tags={formData.tags}
                 content={formData.content}
@@ -329,21 +325,6 @@ export const CreateNewsArticle: React.FC = () => {
                   />
                 </Box>
 
-                {/* Subheadline */}
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                    Subheadline (Optional)
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    placeholder="Add a subheadline to provide more context..."
-                    value={formData.subheadline}
-                    onChange={handleInputChange('subheadline')}
-                    variant="outlined"
-                    multiline
-                    rows={2}
-                  />
-                </Box>
 
                 {/* Cover Image */}
                 <Box sx={{ mb: 3 }}>
@@ -452,17 +433,6 @@ export const CreateNewsArticle: React.FC = () => {
                   News Details
                 </Typography>
 
-                <TextField
-                  fullWidth
-                  label="Byline"
-                  placeholder="By [Author Name]"
-                  value={formData.byline}
-                  onChange={handleInputChange('byline')}
-                  sx={{ mb: 2 }}
-                  InputProps={{
-                    startAdornment: <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                  }}
-                />
 
                 <FormControl fullWidth sx={{ mb: 2 }}>
                   <InputLabel>Category</InputLabel>

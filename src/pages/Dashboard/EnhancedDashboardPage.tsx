@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Box,
@@ -15,7 +16,6 @@ import {
   ListItemAvatar,
   ListItemText,
   Chip,
-  IconButton,
   useTheme,
   alpha
 } from '@mui/material'
@@ -23,18 +23,12 @@ import {
   Article as ArticleIcon,
   Comment as CommentIcon,
   Visibility as ViewIcon,
-  TrendingUp as TrendingUpIcon,
-  People as PeopleIcon,
   NotificationsActive as NotificationIcon,
-  Schedule as ScheduleIcon
+  Category as CategoryIcon
 } from '@mui/icons-material'
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -54,81 +48,79 @@ interface DashboardStats {
   drafts: number
   totalViews: number
   publishedThisWeek: number
+  totalCategories: number
 }
 
 interface Activity {
   id: string
-  type: 'post' | 'comment' | 'user'
+  type: 'post' | 'comment'
   title: string
   description: string
   timestamp: string
   status?: string
+  created_at: string
 }
 
-const mockAnalyticsData = [
-  { name: 'Mon', posts: 4, comments: 12, views: 240 },
-  { name: 'Tue', posts: 3, comments: 8, views: 180 },
-  { name: 'Wed', posts: 6, comments: 15, views: 320 },
-  { name: 'Thu', posts: 2, comments: 6, views: 150 },
-  { name: 'Fri', posts: 5, comments: 18, views: 280 },
-  { name: 'Sat', posts: 7, comments: 22, views: 380 },
-  { name: 'Sun', posts: 4, comments: 14, views: 220 }
-]
+interface AnalyticsData {
+  name: string
+  posts: number
+  comments: number
+  views: number
+}
 
-const categoryData = [
-  { name: 'Technology', value: 35, color: '#8884d8' },
-  { name: 'Design', value: 25, color: '#82ca9d' },
-  { name: 'Marketing', value: 20, color: '#ffc658' },
-  { name: 'Business', value: 15, color: '#ff7300' },
-  { name: 'Other', value: 5, color: '#00ff88' }
-]
+interface CategoryData {
+  name: string
+  value: number
+  color: string
+}
 
 export const EnhancedDashboardPage: React.FC = () => {
   const theme = useTheme()
+  const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats>({
     totalPosts: 0,
     totalComments: 0,
     pendingComments: 0,
     drafts: 0,
     totalViews: 0,
-    publishedThisWeek: 0
+    publishedThisWeek: 0,
+    totalCategories: 0
   })
   const [loading, setLoading] = useState(true)
-  const [activities] = useState<Activity[]>([
-    {
-      id: '1',
-      type: 'post',
-      title: 'New post published',
-      description: '"Building Modern Web Applications" is now live',
-      timestamp: '2 minutes ago',
-      status: 'published'
-    },
-    {
-      id: '2',
-      type: 'comment',
-      title: 'New comment awaiting approval',
-      description: 'Comment on "React Best Practices"',
-      timestamp: '15 minutes ago',
-      status: 'pending'
-    },
-    {
-      id: '3',
-      type: 'post',
-      title: 'Draft saved',
-      description: '"Advanced TypeScript Patterns" draft updated',
-      timestamp: '1 hour ago',
-      status: 'draft'
-    }
-  ])
+  const [categoryData, setCategoryData] = useState<CategoryData[]>([])
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>([])
+
+  const formatTimestamp = (dateString: string): string => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+    
+    if (diffInMinutes < 1) return 'Just now'
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`
+    
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
+    
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
+    
+    return date.toLocaleDateString()
+  }
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const [postsResult, commentsResult, draftsResult, pendingResult] = await Promise.all([
+        const [postsResult, commentsResult, draftsResult, pendingResult, categories, recentPosts, recentComments, postsAnalytics, commentsAnalytics] = await Promise.all([
           PostsService.getAllPosts(0, 1),
           CommentsService.getAllComments(0, 1),
           PostsService.getAllPosts(0, 1, { status: 'draft' }),
-          CommentsService.getAllComments(0, 1, { status: 'pending' })
+          CommentsService.getAllComments(0, 1, { status: 'pending' }),
+          PostsService.getCategories(),
+          PostsService.getRecentPosts(3),
+          CommentsService.getRecentComments(3),
+          PostsService.getAnalyticsData(7),
+          CommentsService.getAnalyticsData(7)
         ])
 
         setStats({
@@ -136,9 +128,75 @@ export const EnhancedDashboardPage: React.FC = () => {
           totalComments: commentsResult.count || 0,
           drafts: draftsResult.count || 0,
           pendingComments: pendingResult.count || 0,
-          totalViews: 12340, // Mock data
-          publishedThisWeek: 7 // Mock data
+          totalViews: 0, // Disabled - no tracking available
+          publishedThisWeek: 7, // Mock data
+          totalCategories: categories.length
         })
+
+        // Create category chart data with real categories
+        const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00ff88', '#ff6b6b', '#4ecdc4', '#45b7d1']
+        const categoryChartData: CategoryData[] = await Promise.all(
+          categories.map(async (category, index) => {
+            const categoryPosts = await PostsService.getAllPosts(0, 1, { category })
+            return {
+              name: category,
+              value: categoryPosts.count || 0,
+              color: colors[index % colors.length]
+            }
+          })
+        )
+        
+        setCategoryData(categoryChartData)
+
+        // Combine recent posts and comments into activities
+        const recentActivities: Activity[] = []
+        
+        // Add recent posts
+        recentPosts.forEach(post => {
+          recentActivities.push({
+            id: `post-${post.id}`,
+            type: 'post',
+            title: post.status === 'publish' ? 'Post published' : post.status === 'draft' ? 'Draft saved' : 'Post updated',
+            description: `"${post.title.length > 40 ? post.title.substring(0, 40) + '...' : post.title}"`,
+            timestamp: formatTimestamp(post.created_at),
+            status: post.status,
+            created_at: post.created_at
+          })
+        })
+
+        // Add recent comments
+        recentComments.forEach(comment => {
+          const postTitle = comment.posts?.title || 'Unknown post'
+          recentActivities.push({
+            id: `comment-${comment.id}`,
+            type: 'comment',
+            title: comment.status === 'pending' ? 'New comment awaiting approval' : 'Comment posted',
+            description: `Comment on "${postTitle.length > 30 ? postTitle.substring(0, 30) + '...' : postTitle}"`,
+            timestamp: formatTimestamp(comment.created_at),
+            status: comment.status,
+            created_at: comment.created_at
+          })
+        })
+
+        // Sort activities by created_at date (most recent first) and take top 6
+        const sortedActivities = recentActivities
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 6)
+          
+        setActivities(sortedActivities)
+
+        // Merge posts and comments analytics data
+        const mergedAnalytics: AnalyticsData[] = postsAnalytics.map(postDay => {
+          const commentDay = commentsAnalytics.find(c => c.date === postDay.date)
+          return {
+            name: postDay.name,
+            posts: postDay.posts,
+            comments: commentDay?.comments || 0,
+            views: Math.max(postDay.posts * 50, commentDay?.comments ? commentDay.comments * 20 : 0) // Estimated views based on engagement
+          }
+        })
+        
+        setAnalyticsData(mergedAnalytics)
       } catch (error) {
         console.error('Failed to load dashboard stats:', error)
       } finally {
@@ -149,24 +207,26 @@ export const EnhancedDashboardPage: React.FC = () => {
     loadStats()
   }, [])
 
-  const StatCard = ({ title, value, icon, color, gradient, trend }: {
+  const StatCard = ({ title, value, icon, color, gradient, trend, disabled }: {
     title: string
     value: number
     icon: React.ReactNode
     color: string
     gradient: string
     trend?: number
+    disabled?: boolean
   }) => (
     <motion.div
-      whileHover={{ y: -4 }}
+      whileHover={disabled ? {} : { y: -4 }}
       transition={{ duration: 0.2 }}
     >
       <Card
         sx={{
-          background: gradient,
-          color: 'white',
+          background: disabled ? 'linear-gradient(135deg, #e0e0e0 0%, #bdbdbd 100%)' : gradient,
+          color: disabled ? '#757575' : 'white',
           position: 'relative',
           overflow: 'hidden',
+          opacity: disabled ? 0.7 : 1,
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -174,7 +234,7 @@ export const EnhancedDashboardPage: React.FC = () => {
             right: 0,
             width: '100px',
             height: '100px',
-            background: 'rgba(255, 255, 255, 0.1)',
+            background: disabled ? 'rgba(117, 117, 117, 0.1)' : 'rgba(255, 255, 255, 0.1)',
             borderRadius: '50%',
             transform: 'translate(30px, -30px)'
           }
@@ -182,10 +242,13 @@ export const EnhancedDashboardPage: React.FC = () => {
       >
         <CardContent sx={{ position: 'relative', zIndex: 1 }}>
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-            <Avatar sx={{ bgcolor: 'rgba(255, 255, 255, 0.2)', color }}>
+            <Avatar sx={{ 
+              bgcolor: disabled ? 'rgba(117, 117, 117, 0.2)' : 'rgba(255, 255, 255, 0.2)', 
+              color: disabled ? '#757575' : color 
+            }}>
               {icon}
             </Avatar>
-            {trend && (
+            {trend && !disabled && (
               <Chip
                 size="small"
                 label={`+${trend}%`}
@@ -221,12 +284,16 @@ export const EnhancedDashboardPage: React.FC = () => {
 
   const getActivityColor = (status?: string) => {
     switch (status) {
+      case 'publish':
       case 'published':
+      case 'approved':
         return theme.palette.success.main
       case 'pending':
         return theme.palette.warning.main
       case 'draft':
         return theme.palette.info.main
+      case 'spam':
+        return theme.palette.error.main
       default:
         return theme.palette.primary.main
     }
@@ -253,7 +320,6 @@ export const EnhancedDashboardPage: React.FC = () => {
             icon={<ArticleIcon />}
             color="#667eea"
             gradient={theme.gradients.primary}
-            trend={12}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -263,27 +329,25 @@ export const EnhancedDashboardPage: React.FC = () => {
             icon={<CommentIcon />}
             color="#f093fb"
             gradient={theme.gradients.secondary}
-            trend={8}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
             title="Total Views"
-            value={stats.totalViews}
+            value={0}
             icon={<ViewIcon />}
             color="#4facfe"
             gradient={theme.gradients.success}
-            trend={15}
+            disabled={true}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
-            title="This Week"
-            value={stats.publishedThisWeek}
-            icon={<TrendingUpIcon />}
+            title="Content Categories"
+            value={stats.totalCategories}
+            icon={<CategoryIcon />}
             color="#ffecd2"
             gradient={theme.gradients.warning}
-            trend={5}
           />
         </Grid>
       </Grid>
@@ -298,42 +362,59 @@ export const EnhancedDashboardPage: React.FC = () => {
           >
             <Paper sx={{ p: 2.5, height: 380 }}>
               <Typography variant="h6" gutterBottom fontWeight="600" sx={{ fontSize: '0.9375rem', mb: 2 }}>
-                Content & Engagement Analytics
+                Content & Engagement Analytics (Last 7 Days)
               </Typography>
-              <ResponsiveContainer width="100%" height="90%">
-                <AreaChart data={mockAnalyticsData}>
-                  <defs>
-                    <linearGradient id="colorPosts" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#667eea" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#667eea" stopOpacity={0.1}/>
-                    </linearGradient>
-                    <linearGradient id="colorComments" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f093fb" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#f093fb" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="posts"
-                    stroke="#667eea"
-                    fillOpacity={1}
-                    fill="url(#colorPosts)"
-                    strokeWidth={3}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="comments"
-                    stroke="#f093fb"
-                    fillOpacity={1}
-                    fill="url(#colorComments)"
-                    strokeWidth={3}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '90%' }}>
+                  <CircularProgress />
+                </Box>
+              ) : analyticsData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="90%">
+                  <AreaChart data={analyticsData}>
+                    <defs>
+                      <linearGradient id="colorPosts" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#667eea" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#667eea" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="colorComments" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f093fb" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#f093fb" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip formatter={(value, name) => [
+                      value,
+                      name === 'posts' ? 'Posts Created' : 
+                      name === 'comments' ? 'Comments Added' : 
+                      name === 'views' ? 'Estimated Views' : name
+                    ]} />
+                    <Area
+                      type="monotone"
+                      dataKey="posts"
+                      stroke="#667eea"
+                      fillOpacity={1}
+                      fill="url(#colorPosts)"
+                      strokeWidth={3}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="comments"
+                      stroke="#f093fb"
+                      fillOpacity={1}
+                      fill="url(#colorComments)"
+                      strokeWidth={3}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '90%' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No analytics data available
+                  </Typography>
+                </Box>
+              )}
             </Paper>
           </motion.div>
         </Grid>
@@ -346,26 +427,34 @@ export const EnhancedDashboardPage: React.FC = () => {
           >
             <Paper sx={{ p: 3, height: 400 }}>
               <Typography variant="h6" gutterBottom fontWeight="bold">
-                Content Categories
+                Content Categories Distribution
               </Typography>
-              <ResponsiveContainer width="100%" height="90%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {categoryData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="90%">
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, value }) => `${name} (${value})`}
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} posts`, 'Count']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '90%' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {loading ? <CircularProgress size={20} /> : 'No categories found'}
+                  </Typography>
+                </Box>
+              )}
             </Paper>
           </motion.div>
         </Grid>
@@ -383,55 +472,68 @@ export const EnhancedDashboardPage: React.FC = () => {
               <Typography variant="h6" gutterBottom fontWeight="bold">
                 Recent Activity
               </Typography>
-              <List>
-                {activities.map((activity, index) => (
-                  <motion.div
-                    key={activity.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 * index }}
-                  >
-                    <ListItem
-                      sx={{
-                        borderRadius: 2,
-                        mb: 1,
-                        '&:hover': {
-                          bgcolor: alpha(theme.palette.primary.main, 0.05)
-                        }
-                      }}
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : activities.length > 0 ? (
+                <List>
+                  {activities.map((activity, index) => (
+                    <motion.div
+                      key={activity.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.1 * index }}
                     >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: getActivityColor(activity.status) }}>
-                          {getActivityIcon(activity.type)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={activity.title}
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
-                              {activity.description}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {activity.timestamp}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                      {activity.status && (
-                        <Chip
-                          size="small"
-                          label={activity.status}
-                          color={
-                            activity.status === 'published' ? 'success' :
-                            activity.status === 'pending' ? 'warning' : 'info'
+                      <ListItem
+                        sx={{
+                          borderRadius: 2,
+                          mb: 1,
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.05)
+                          }
+                        }}
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: getActivityColor(activity.status) }}>
+                            {getActivityIcon(activity.type)}
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={activity.title}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                {activity.description}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {activity.timestamp}
+                              </Typography>
+                            </Box>
                           }
                         />
-                      )}
-                    </ListItem>
-                  </motion.div>
-                ))}
-              </List>
+                        {activity.status && (
+                          <Chip
+                            size="small"
+                            label={activity.status}
+                            color={
+                              activity.status === 'publish' ? 'success' :
+                              activity.status === 'pending' ? 'warning' : 
+                              activity.status === 'approved' ? 'success' : 'info'
+                            }
+                          />
+                        )}
+                      </ListItem>
+                    </motion.div>
+                  ))}
+                </List>
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No recent activity found
+                  </Typography>
+                </Box>
+              )}
             </Paper>
           </motion.div>
         </Grid>
@@ -452,6 +554,7 @@ export const EnhancedDashboardPage: React.FC = () => {
                   size="large"
                   startIcon={<ArticleIcon />}
                   fullWidth
+                  onClick={() => navigate('/dashboard/posts/create')}
                   sx={{
                     background: theme.gradients.primary,
                     py: 1.5,
@@ -468,6 +571,7 @@ export const EnhancedDashboardPage: React.FC = () => {
                   size="large"
                   startIcon={<CommentIcon />}
                   fullWidth
+                  onClick={() => navigate('/dashboard/comments')}
                   sx={{ py: 1.5 }}
                 >
                   Moderate Comments ({stats.pendingComments})
@@ -475,20 +579,12 @@ export const EnhancedDashboardPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   size="large"
-                  startIcon={<PeopleIcon />}
+                  startIcon={<ArticleIcon />}
                   fullWidth
+                  onClick={() => navigate('/dashboard/posts')}
                   sx={{ py: 1.5 }}
                 >
-                  Manage Users
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  startIcon={<ScheduleIcon />}
-                  fullWidth
-                  sx={{ py: 1.5 }}
-                >
-                  Schedule Content
+                  Manage Posts
                 </Button>
               </Box>
             </Paper>

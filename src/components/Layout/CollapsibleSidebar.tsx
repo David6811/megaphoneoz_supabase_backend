@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Box,
@@ -26,6 +26,7 @@ import {
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { CommentsService } from '../../services/commentsService'
 
 const drawerWidthExpanded = 240
 const drawerWidthCollapsed = 64
@@ -47,6 +48,21 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
   const navigate = useNavigate()
   const location = useLocation()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const [commentsCount, setCommentsCount] = useState<number>(0)
+
+  // Load comments count
+  useEffect(() => {
+    const loadCommentsCount = async () => {
+      try {
+        const count = await CommentsService.getCommentsCount()
+        setCommentsCount(count)
+      } catch (error) {
+        console.error('Failed to load comments count:', error)
+        setCommentsCount(0)
+      }
+    }
+    loadCommentsCount()
+  }, [])
 
   // Auto-collapse on mobile
   useEffect(() => {
@@ -58,7 +74,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Posts', icon: <ArticleIcon />, path: '/dashboard/posts' },
-    { text: 'Comments', icon: <CommentIcon />, path: '/dashboard/comments', badge: 3 },
+    { text: 'Comments', icon: <CommentIcon />, path: '/dashboard/comments', badge: commentsCount > 0 ? commentsCount : undefined },
     { text: 'Settings', icon: <SettingsIcon />, path: '/dashboard/settings' }
   ]
 
@@ -108,7 +124,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
               transition={{ duration: 0.2 }}
             >
               <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                CMS Admin
+                Megaphoneoz admin
               </Typography>
             </motion.div>
           )}
