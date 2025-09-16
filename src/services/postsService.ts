@@ -109,6 +109,24 @@ export class PostsService {
       .range(page * limit, (page + 1) * limit - 1)
       .returns<Post[]>()
 
+    // For getting accurate count, we need to explicitly request it
+    if (page === 0 && limit === 1) {
+      let countQuery = supabase.from('posts').select('*', { count: 'exact', head: true })
+      
+      if (filters?.status) {
+        countQuery = countQuery.eq('status', filters.status)
+      }
+      if (filters?.category) {
+        countQuery = countQuery.eq('category', filters.category)
+      }
+      if (filters?.search) {
+        countQuery = countQuery.or(`title.ilike.%${filters.search}%,content.ilike.%${filters.search}%`)
+      }
+      
+      const { count: totalCount } = await countQuery
+      return { data, count: totalCount }
+    }
+
     if (error) throw error
     
     // Debug: log first post to see available fields (can be removed in production)
@@ -269,5 +287,61 @@ export class PostsService {
     const uniqueCategories = new Set(data.map(item => item.category).filter(Boolean))
     const categories = Array.from(uniqueCategories)
     return categories
+  }
+
+  static async getRecentPosts(limit = 5) {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('id, title, status, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    return data as Array<Pick<Post, 'id' | 'title' | 'status' | 'created_at' | 'updated_at'>>
+  }
+
+  static async getAnalyticsData(days = 7) {
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(endDate.getDate() - days + 1)
+
+    const { data, error } = await supabase
+      .from('posts')
+      .select('created_at')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+
+    // Group posts by date
+    const postsByDate: { [key: string]: number } = {}
+    const dateRange = []
+    
+    // Initialize all dates with 0
+    for (let i = 0; i < days; i++) {
+      const date = new Date()
+      date.setDate(endDate.getDate() - days + 1 + i)
+      const dateKey = date.toISOString().split('T')[0]
+      postsByDate[dateKey] = 0
+      dateRange.push({
+        date: dateKey,
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' })
+      })
+    }
+
+    // Count posts by date
+    data?.forEach(post => {
+      const dateKey = post.created_at.split('T')[0]
+      if (postsByDate.hasOwnProperty(dateKey)) {
+        postsByDate[dateKey]++
+      }
+    })
+
+    return dateRange.map(day => ({
+      name: day.dayName,
+      date: day.date,
+      posts: postsByDate[day.date] || 0
+    }))
   }
 }

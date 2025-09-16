@@ -108,7 +108,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
               transition={{ duration: 0.2 }}
             >
               <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                CMS Admin
+                Megaphoneoz admin
               </Typography>
             </motion.div>
           )}

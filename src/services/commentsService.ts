@@ -27,6 +27,21 @@ export class CommentsService {
       .range(page * limit, (page + 1) * limit - 1)
       .returns<Comment[]>()
 
+    // For getting accurate count, we need to explicitly request it
+    if (page === 0 && limit === 1) {
+      let countQuery = supabase.from('comments').select('*', { count: 'exact', head: true })
+      
+      if (filters?.status) {
+        countQuery = countQuery.eq('status', filters.status)
+      }
+      if (filters?.post_id) {
+        countQuery = countQuery.eq('post_id', filters.post_id)
+      }
+      
+      const { count: totalCount } = await countQuery
+      return { data, count: totalCount }
+    }
+
     if (error) throw error
     return { data, count }
   }
@@ -85,5 +100,68 @@ export class CommentsService {
 
   static async rejectComment(id: number) {
     return this.updateComment(id, { status: 'spam' })
+  }
+
+  static async getRecentComments(limit = 5) {
+    const { data, error } = await supabase
+      .from('comments')
+      .select(`
+        id, 
+        content, 
+        status, 
+        created_at,
+        post_id,
+        posts(id, title)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) throw error
+    return data as any[]
+  }
+
+  static async getAnalyticsData(days = 7) {
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(endDate.getDate() - days + 1)
+
+    const { data, error } = await supabase
+      .from('comments')
+      .select('created_at')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+
+    // Group comments by date
+    const commentsByDate: { [key: string]: number } = {}
+    const dateRange = []
+    
+    // Initialize all dates with 0
+    for (let i = 0; i < days; i++) {
+      const date = new Date()
+      date.setDate(endDate.getDate() - days + 1 + i)
+      const dateKey = date.toISOString().split('T')[0]
+      commentsByDate[dateKey] = 0
+      dateRange.push({
+        date: dateKey,
+        dayName: date.toLocaleDateString('en-US', { weekday: 'short' })
+      })
+    }
+
+    // Count comments by date
+    data?.forEach(comment => {
+      const dateKey = comment.created_at.split('T')[0]
+      if (commentsByDate.hasOwnProperty(dateKey)) {
+        commentsByDate[dateKey]++
+      }
+    })
+
+    return dateRange.map(day => ({
+      name: day.dayName,
+      date: day.date,
+      comments: commentsByDate[day.date] || 0
+    }))
   }
 }

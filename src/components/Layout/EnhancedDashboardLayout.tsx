@@ -18,8 +18,6 @@ import {
   Menu as MenuIcon,
   AccountCircle,
   Logout,
-  Notifications as NotificationsIcon,
-  Search as SearchIcon,
   NavigateNext as NavigateNextIcon
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -175,20 +173,6 @@ export const EnhancedDashboardLayout: React.FC<EnhancedDashboardLayoutProps> = (
 
           {/* Header Actions */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton 
-              size="small" 
-              color="inherit"
-              sx={{ width: 36, height: 36 }}
-            >
-              <SearchIcon fontSize="small" />
-            </IconButton>
-            <IconButton 
-              size="small" 
-              color="inherit"
-              sx={{ width: 36, height: 36 }}
-            >
-              <NotificationsIcon fontSize="small" />
-            </IconButton>
             <IconButton
               size="small"
               aria-label="account of current user"
@@ -196,7 +180,6 @@ export const EnhancedDashboardLayout: React.FC<EnhancedDashboardLayoutProps> = (
               aria-haspopup="true"
               onClick={handleMenu}
               color="inherit"
-              sx={{ ml: 1 }}
             >
               <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
                 <AccountCircle />
