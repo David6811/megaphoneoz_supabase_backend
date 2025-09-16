@@ -48,7 +48,6 @@ import {
 } from '@mui/material'
 import {
   Add as AddIcon,
-  MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
@@ -303,20 +302,21 @@ export const EnhancedPostsPage: React.FC = () => {
               sx={{ fontWeight: 600 }}
             />
             <IconButton
-              id="post-action-button"
               size="small"
-              aria-label="Post actions"
-              aria-controls={Boolean(menuPosition) ? 'post-action-menu' : undefined}
-              aria-haspopup="true"
-              onClick={(e) => handleMenuClick(e, post)}
+              aria-label="Delete post"
+              onClick={(e) => {
+                e.stopPropagation()
+                setSelectedPost(post)
+                setDeleteDialogOpen(true)
+              }}
               sx={{ 
                 bgcolor: alpha(theme.palette.background.paper, 0.8),
-                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) },
+                '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.1), color: theme.palette.error.main },
                 position: 'relative',
                 zIndex: 1
               }}
             >
-              <MoreVertIcon />
+              <DeleteIcon />
             </IconButton>
           </Box>
 
@@ -484,12 +484,19 @@ export const EnhancedPostsPage: React.FC = () => {
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="More actions">
+            <Tooltip title="Delete post">
               <IconButton
                 size="small"
-                onClick={(e) => handleMenuClick(e, post)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedPost(post)
+                  setDeleteDialogOpen(true)
+                }}
+                sx={{
+                  '&:hover': { color: theme.palette.error.main }
+                }}
               >
-                <MoreVertIcon fontSize="small" />
+                <DeleteIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Box>
@@ -677,18 +684,6 @@ export const EnhancedPostsPage: React.FC = () => {
                     List
                   </ToggleButton>
                 </ToggleButtonGroup>
-                <Tooltip title="Reset Filters">
-                  <Button 
-                    variant="outlined" 
-                    onClick={() => {
-                      setFilters({ status: '', category: '', search: '' })
-                      setSearchInput('')
-                    }}
-                    disabled={!filters.status && !filters.category && !filters.search}
-                  >
-                    Clear
-                  </Button>
-                </Tooltip>
               </Box>
             </Grid>
           </Grid>
