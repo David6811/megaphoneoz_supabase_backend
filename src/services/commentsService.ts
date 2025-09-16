@@ -164,4 +164,17 @@ export class CommentsService {
       comments: commentsByDate[day.date] || 0
     }))
   }
+
+  static async getCommentsCount() {
+    const { count, error } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+
+    if (error) {
+      console.error('Error getting comments count:', error)
+      throw error
+    }
+
+    return count || 0
+  }
 }

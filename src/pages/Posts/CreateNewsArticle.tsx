@@ -174,7 +174,7 @@ export const CreateNewsArticle: React.FC = () => {
         // Note: subtitle field not supported in current database schema
         content: formData.content,
         excerpt: formData.excerpt,
-        status: publishNow ? 'publish' as const : formData.status,
+        status: publishNow ? 'publish' as const : 'draft' as const,
         post_type: 'post' as const,
         cover_image_url: formData.coverImage,
         category: formData.category,
