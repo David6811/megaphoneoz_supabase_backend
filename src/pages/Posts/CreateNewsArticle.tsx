@@ -46,7 +46,6 @@ import { CATEGORY_MAP, CategoryInfo, debugCategoryMapping, getAllCategoryMapping
 
 interface NewsFormData {
   headline: string
-  subheadline: string
   category: string
   tags: string[]
   content: string
@@ -85,7 +84,6 @@ export const CreateNewsArticle: React.FC = () => {
   
   const [formData, setFormData] = useState<NewsFormData>({
     headline: '',
-    subheadline: '',
     category: '',
     tags: [],
     content: '',
@@ -173,6 +171,7 @@ export const CreateNewsArticle: React.FC = () => {
 
       const postData = {
         title: formData.headline,
+        // Note: subtitle field not supported in current database schema
         content: formData.content,
         excerpt: formData.excerpt,
         status: publishNow ? 'publish' as const : formData.status,
@@ -293,7 +292,7 @@ export const CreateNewsArticle: React.FC = () => {
             {previewMode ? (
               <ArticlePreview
                 headline={formData.headline}
-                subheadline={formData.subheadline}
+                subheadline=""
                 category={formData.category}
                 tags={formData.tags}
                 content={formData.content}
@@ -326,21 +325,6 @@ export const CreateNewsArticle: React.FC = () => {
                   />
                 </Box>
 
-                {/* Subheadline */}
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                    Subheadline (Optional)
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    placeholder="Add a subheadline to provide more context..."
-                    value={formData.subheadline}
-                    onChange={handleInputChange('subheadline')}
-                    variant="outlined"
-                    multiline
-                    rows={2}
-                  />
-                </Box>
 
                 {/* Cover Image */}
                 <Box sx={{ mb: 3 }}>

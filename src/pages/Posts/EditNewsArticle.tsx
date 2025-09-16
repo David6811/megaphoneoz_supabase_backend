@@ -40,12 +40,38 @@ import { ImageUpload } from '../../components/Upload/ImageUpload'
 import { ArticlePreview } from '../../components/Preview/ArticlePreview'
 import { PostsService } from '../../services/postsService'
 import { StorageService, UploadResult } from '../../services/storageService'
-import { NEWS_CATEGORIES, STANDALONE_CATEGORIES } from '../../constants/categories'
+import { CATEGORY_MAP, CategoryInfo } from '../../constants/categoryMapping'
 import type { Post } from '../../types/database'
+
+// Helper function to organize categories by hierarchy
+const organizeCategoriesByHierarchy = () => {
+  const level1Categories = Object.values(CATEGORY_MAP).filter(cat => cat.level === 1)
+  const level2Categories = Object.values(CATEGORY_MAP).filter(cat => cat.level === 2)
+  const level3Categories = Object.values(CATEGORY_MAP).filter(cat => cat.level === 3)
+  
+  return level1Categories.map(level1 => ({
+    ...level1,
+    children: level2Categories.filter(level2 => level2.parentId === level1.id).map(level2 => ({
+      ...level2,
+      children: level3Categories.filter(level3 => level3.parentId === level2.id)
+    }))
+  }))
+}
+
+// Helper function to find displayName from hierarchicalName (for backward compatibility)
+const findDisplayNameFromHierarchical = (hierarchicalName: string): string => {
+  const category = Object.values(CATEGORY_MAP).find(cat => cat.hierarchicalName === hierarchicalName)
+  return category?.displayName || hierarchicalName
+}
+
+// Helper function to find hierarchicalName from displayName (for saving)
+const findHierarchicalFromDisplayName = (displayName: string): string => {
+  const category = Object.values(CATEGORY_MAP).find(cat => cat.displayName === displayName)
+  return category?.hierarchicalName || displayName
+}
 
 interface NewsFormData {
   headline: string
-  subheadline: string
   category: string
   tags: string[]
   content: string
@@ -71,7 +97,6 @@ export const EditNewsArticle: React.FC = () => {
   
   const [formData, setFormData] = useState<NewsFormData>({
     headline: '',
-    subheadline: '',
     category: '',
     tags: [],
     content: '',
@@ -102,8 +127,7 @@ export const EditNewsArticle: React.FC = () => {
           // Handle fields that may not exist in database yet
           const formData = {
             headline: post.title || '',
-            subheadline: (post as any).subtitle || '', // May not exist yet
-            category: post.category || '',
+            category: findDisplayNameFromHierarchical(post.category || ''),
             tags: Array.isArray((post as any).tags) ? (post as any).tags : [], // May not exist yet
             content: post.content || '',
             excerpt: post.excerpt || '',
@@ -170,15 +194,12 @@ export const EditNewsArticle: React.FC = () => {
         title: formData.headline,
         content: formData.content,
         excerpt: formData.excerpt,
-        category: formData.category,
+        category: findHierarchicalFromDisplayName(formData.category),
         cover_image_url: formData.coverImage,
         status
       }
       
-      // Only add optional fields if they're supported
-      if (formData.subheadline) {
-        updateData.subtitle = formData.subheadline
-      }
+      // Note: subtitle field not supported in current database schema
       if (formData.tags && formData.tags.length > 0) {
         updateData.tags = formData.tags
       }
@@ -230,7 +251,7 @@ export const EditNewsArticle: React.FC = () => {
     return (
       <ArticlePreview
         headline={formData.headline}
-        subheadline={formData.subheadline}
+        subheadline=""
         category={formData.category}
         tags={formData.tags}
         content={formData.content}
@@ -327,14 +348,6 @@ export const EditNewsArticle: React.FC = () => {
                 </Grid>
                 
                 <Grid size={{ xs: 12 }}>
-                  <TextField
-                    fullWidth
-                    label="Subheadline"
-                    value={formData.subheadline}
-                    onChange={(e) => handleInputChange('subheadline', e.target.value)}
-                    placeholder="Optional subheadline for more context..."
-                    sx={{ mb: 2 }}
-                  />
                 </Grid>
                 
                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -345,42 +358,33 @@ export const EditNewsArticle: React.FC = () => {
                       label="Category"
                       onChange={(e) => handleInputChange('category', e.target.value)}
                     >
-                      {[
-                        // Three-tier hierarchical categories
-                        ...Object.entries(NEWS_CATEGORIES).map(([level1, level2Obj]) => [
-                          <ListSubheader key={level1} sx={{ fontWeight: 600, color: 'primary.main', fontSize: '1rem' }}>
-                            {level1}
-                          </ListSubheader>,
-                          ...Object.entries(level2Obj).map(([level2, level3Array]) => {
-                            if (level3Array.length === 0) {
-                              // Level 2 only - can be selected directly
-                              return (
-                                <MenuItem key={`${level1} > ${level2}`} value={`${level1} > ${level2}`} sx={{ pl: 3, fontWeight: 500 }}>
-                                  {level2}
+                      {organizeCategoriesByHierarchy().map(level1 => [
+                        <ListSubheader key={level1.id} sx={{ fontWeight: 600, color: 'primary.main', fontSize: '1rem' }}>
+                          {level1.displayName}
+                        </ListSubheader>,
+                        ...level1.children.map(level2 => {
+                          if (level2.children.length === 0) {
+                            // Level 2 only - can be selected directly
+                            return (
+                              <MenuItem key={level2.id} value={level2.displayName} sx={{ pl: 3, fontWeight: 500 }}>
+                                {level2.displayName}
+                              </MenuItem>
+                            )
+                          } else {
+                            // Level 2 has Level 3 children
+                            return [
+                              <ListSubheader key={`${level2.id}-header`} sx={{ fontWeight: 500, color: 'text.secondary', pl: 2, fontSize: '0.9rem' }}>
+                                {level2.displayName}
+                              </ListSubheader>,
+                              ...level2.children.map(level3 => (
+                                <MenuItem key={level3.id} value={level3.displayName} sx={{ pl: 6 }}>
+                                  {level3.displayName}
                                 </MenuItem>
-                              )
-                            } else {
-                              // Level 2 has Level 3 children
-                              return [
-                                <ListSubheader key={`${level1}-${level2}`} sx={{ fontWeight: 500, color: 'text.secondary', pl: 2, fontSize: '0.9rem' }}>
-                                  {level2}
-                                </ListSubheader>,
-                                ...level3Array.map(level3 => (
-                                  <MenuItem key={`${level1} > ${level2} > ${level3}`} value={`${level1} > ${level2} > ${level3}`} sx={{ pl: 6 }}>
-                                    {level3}
-                                  </MenuItem>
-                                ))
-                              ]
-                            }
-                          })
-                        ]),
-                        // Standalone categories
-                        ...STANDALONE_CATEGORIES.map(category => (
-                          <MenuItem key={category} value={category} sx={{ fontWeight: 500 }}>
-                            {category}
-                          </MenuItem>
-                        ))
-                      ]}
+                              ))
+                            ]
+                          }
+                        })
+                      ])}
                     </Select>
                   </FormControl>
                 </Grid>
